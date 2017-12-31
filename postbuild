@@ -84,7 +84,7 @@ if (program.js) {
         } else if (fs.lstatSync(js).isDirectory()) {
             jsFiles = fs.readdirSync(js)
                 .filter(file => file.substr(-3) === '.js')
-                .map(file => removePrefix(`${js}/${file}`, program.ignore))
+                .map(file => removePrefix(`${js}${file}`, program.ignore))
                 .map(file => appendETagSHAToFilename(file))
                 .map(file => `<script src="${file}"></script>`)
                 .join('\n');
@@ -111,7 +111,7 @@ if (program.css) {
         } else if (fs.lstatSync(css).isDirectory()) {
             cssFiles = fs.readdirSync(css)
                 .filter(file => file.substr(-4) === '.css')
-                .map(file => removePrefix(`${css}/${file}`, program.ignore))
+                .map(file => removePrefix(`${css}${file}`, program.ignore))
                 .map(file => appendETagSHAToFilename(file))
                 .map(file => `<link rel="stylesheet" href="${file}">`)
                 .join('\n');
