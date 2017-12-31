@@ -6,7 +6,6 @@ const child_process = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
-const replaceStream = require('replacestream');
 const program = require('commander');
 const crypto = require('crypto');
 
