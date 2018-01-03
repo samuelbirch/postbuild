@@ -11,6 +11,7 @@ const crypto = require('crypto');
 
 let cssFiles;
 let jsFiles;
+let jsHashes;
 let revision;
 let removeCondition;
 
@@ -79,23 +80,36 @@ if (program.js) {
             jsFiles = glob.sync(js)
                 .map(file => removePrefix(file, program.ignore))
                 .map(file => appendETagSHAToFilename(file))
-                .map(file => `<script src="${file}"></script>`)
+                .map(file => `\t<script src="${file}"></script>`)
                 .join('\n');
         } else if (fs.lstatSync(js).isDirectory()) {
             jsFiles = fs.readdirSync(js)
                 .filter(file => file.substr(-3) === '.js')
                 .map(file => removePrefix(`${js}${file}`, program.ignore))
                 .map(file => appendETagSHAToFilename(file))
-                .map(file => `<script src="${file}"></script>`)
+                .map(file => `\t<script src="${file}"></script>`)
                 .join('\n');
         } else if (fs.lstatSync(js).isFile()) {
             let file = removePrefix(js, program.ignore);
-            jsFiles = `<script src="${appendETagSHAToFilename(file)}"></script>`;
+            jsFiles = `\t<script src="${appendETagSHAToFilename(file)}"></script>`;
         }
-        jsFiles += `\n`;
+        jsFiles += `\n\t`;
     } catch (e) {
         handleError(`File or folder '${js}' not found`);
     }
+
+    jsHashes = jsFiles.split('\n')
+        .map((file) => {
+            let matches = file.match(/(\w+?)\.([\w\d]+?)\.js/);
+            if (matches) {
+                return '\t"' + matches[1] + '":"' + matches[2] + '"';
+            } else {
+                return null;
+            }
+        })
+        .filter((file) => { return file !== null })
+        .join(',\n');
+    jsHashes = '\t<script>\n\t\tvar apphashes = {\n\t\t' + jsHashes + '\n\t\t}\n\t</script>\n\t';
 }
 
 if (program.css) {
@@ -106,20 +120,20 @@ if (program.css) {
             cssFiles = glob.sync(css)
                 .map(file => removePrefix(file, program.ignore))
                 .map(file => appendETagSHAToFilename(file))
-                .map(file => `<link rel="stylesheet" href="${file}">`)
+                .map(file => `\t<link rel="stylesheet" href="${file}">`)
                 .join('\n');
         } else if (fs.lstatSync(css).isDirectory()) {
             cssFiles = fs.readdirSync(css)
                 .filter(file => file.substr(-4) === '.css')
                 .map(file => removePrefix(`${css}${file}`, program.ignore))
                 .map(file => appendETagSHAToFilename(file))
-                .map(file => `<link rel="stylesheet" href="${file}">`)
+                .map(file => `\t<link rel="stylesheet" href="${file}">`)
                 .join('\n');
         } else if (fs.lstatSync(css).isFile()) {
             let file = removePrefix(css, program.ignore);
-            cssFiles = `<link rel="stylesheet" href="${appendETagSHAToFilename(file)}">`;
+            cssFiles = `\t<link rel="stylesheet" href="${appendETagSHAToFilename(file)}">`;
         }
-        cssFiles += `\n`;
+        cssFiles += `\n\t`;
     } catch (e) {
         handleError(`File or folder '${css}' not found`);
     }
@@ -137,12 +151,14 @@ if (program.hash) {
 
 const replaceJs = replaceFunc(jsFiles);
 const replaceCss = replaceFunc(cssFiles);
+const replaceJsHashes = replaceFunc(jsHashes);
 const injectHash = replaceFunc(`<!-- ${revision} -->`)
 const regex = new RegExp(`(<!\\-\\- remove:${removeCondition} \\-\\->)([\\s\\S]*?)(<!\\-\\- endremove \\-\\->)`, 'gm');
 
 var data = fs.readFileSync(program.input, 'UTF-8');
 data = data.replace(/(?<=\<!\-\- inject:js \-\->\n)([\s\S]*?)(?=\<!\-\- endinject \-\->)/gm, replaceJs);
 data = data.replace(/(?<=\<!\-\- inject:css \-\->\n)([\s\S]*?)(?=\<!\-\- endinject \-\->)/gm, replaceCss);
+data = data.replace(/(?<=\<!\-\- inject:apphashes \-\->\n)([\s\S]*?)(?=\<!\-\- endinject \-\->)/gm, replaceJsHashes);
 data = data.replace(/(<!\-\- inject:git\-hash \-\->)/gm, injectHash);
 data = data.replace(regex, '');
 fs.writeFileSync(program.output, data);
